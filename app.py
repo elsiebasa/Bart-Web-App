@@ -2,7 +2,8 @@ from flask import Flask, jsonify
 from flask_cors import CORS
 import requests
 from datetime import datetime
-from etl.database import BartDatabase
+from database import BartDatabase
+
 
 app = Flask(__name__)
 CORS(app)
@@ -209,4 +210,6 @@ def get_performance_data(station):
         }), 500
 
 if __name__ == '__main__':
-    app.run(debug=True, port=5000) 
+    import os
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port, debug=False)
