@@ -3,11 +3,27 @@ from datetime import datetime
 import os
 
 class BartDatabase:
-    def __init__(self, db_path='data/bart.db'):
-        # Create data directory if it doesn't exist
-        os.makedirs(os.path.dirname(db_path), exist_ok=True)
+    def __init__(self, db_path=None):
+        # Railway persistent storage path
+        if db_path is None:
+            # Check if we're in Railway environment
+            if os.environ.get('RAILWAY_ENVIRONMENT'):
+                # Use Railway's persistent volume
+                db_path = '/app/data/bart.db'
+            else:
+                # Local development
+                db_path = 'data/bart.db'
         
-        self.conn = sqlite3.connect(db_path)
+        # Create data directory if it doesn't exist
+        try:
+            os.makedirs(os.path.dirname(db_path), exist_ok=True)
+        except Exception as e:
+            print(f"Warning: Could not create directory for {db_path}: {e}")
+            # Fallback to current directory
+            db_path = 'bart.db'
+        
+        print(f"Using database path: {db_path}")
+        self.conn = sqlite3.connect(db_path, check_same_thread=False)
         self.create_tables()
     
     def create_tables(self):
@@ -63,6 +79,7 @@ class BartDatabase:
         ''')
         
         self.conn.commit()
+        print("Database tables created successfully")
     
     def save_station(self, station_data):
         cursor = self.conn.cursor()
@@ -108,9 +125,9 @@ class BartDatabase:
         cursor.execute('''
         SELECT 
             COUNT(*) as total,
-            SUM(CASE WHEN minutes > 0 THEN 1 ELSE 0 END) as delayed,
-            AVG(CASE WHEN minutes > 0 THEN minutes ELSE NULL END) as avg_delay,
-            MAX(CASE WHEN minutes > 0 THEN minutes ELSE 0 END) as max_delay
+            SUM(CASE WHEN delay > 0 THEN 1 ELSE 0 END) as delayed,
+            AVG(CASE WHEN delay > 0 THEN delay ELSE NULL END) as avg_delay,
+            MAX(CASE WHEN delay > 0 THEN delay ELSE 0 END) as max_delay
         FROM departures
         WHERE station_id = ? AND date(created_at) = ?
         ''', (station_id, date))
@@ -151,4 +168,5 @@ class BartDatabase:
         return cursor.fetchall()
     
     def close(self):
-        self.conn.close() 
+        if self.conn:
+            self.conn.close()
