@@ -106,7 +106,7 @@ def get_daily_analytics():
 def get_station_analytics():
     """Get analytics by station"""
     try:
-        db = BartDatabase()
+        db = BartDatabase(db_path='bart_history.db')
         cursor = db.conn.cursor()
         
         # Get station stats for the last 7 days
