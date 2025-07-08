@@ -1,0 +1,66 @@
+name: BART ETL Pipeline
+
+on:
+  schedule:
+    - cron: '0 */4 * * *'  # Run every 4 hours
+  workflow_dispatch:  # Allow manual triggering
+
+jobs:
+  etl:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v2
+    
+    - name: Set up Python
+      uses: actions/setup-python@v2
+      with:
+        python-version: '3.9'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install pandas==2.1.4
+        pip install -e .
+        pip install flask==2.0.1 werkzeug==2.0.3 requests==2.31.0 flask-cors==4.0.0 python-dotenv==1.0.0 sqlalchemy==1.4.41
+    
+    - name: Create data directory
+      run: mkdir -p data
+    
+    - name: Initialize database if not exists
+      run: |
+        if [ ! -f data/bart_history.db ]; then
+          sqlite3 data/bart_history.db "CREATE TABLE IF NOT EXISTS departures (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            station TEXT,
+            destination TEXT,
+            platform TEXT,
+            minutes INTEGER,
+            direction TEXT,
+            color TEXT,
+            length INTEGER,
+            bike_flag INTEGER,
+            delay INTEGER,
+            timestamp DATETIME,
+            date DATE
+          );
+          CREATE TABLE IF NOT EXISTS daily_stats (
+            date DATE PRIMARY KEY,
+            total_departures INTEGER,
+            total_delays INTEGER,
+            avg_delay_minutes REAL
+          );"
+        fi
+    
+    - name: Set up Google Cloud credentials
+      uses: google-github-actions/auth@v1
+      with:
+        credentials_json: ${{ secrets.GCP_SA_KEY }}
+    
+    - name: Run ETL job
+      run: |
+        export PYTHONPATH=$PYTHONPATH:$(pwd)
+        python etl/github_scheduler.py
+      env:
+        DATABASE_PATH: data/bart_history.db
+        GOOGLE_CLOUD_PROJECT: ${{ secrets.GCP_PROJECT_ID }}
