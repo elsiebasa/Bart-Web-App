@@ -5,13 +5,21 @@ import requests
 from datetime import datetime
 from database import BartDatabase
 
-
 app = Flask(__name__)
 CORS(app)
 
 # BART API configuration
 BART_API_KEY = 'MW9S-E7SL-26DU-VV8V'  # This is a public test key
 BART_API_BASE_URL = 'http://api.bart.gov/api'
+
+@app.route('/', methods=['GET'])
+def health_check():
+    """Health check endpoint"""
+    return jsonify({
+        "status": "healthy",
+        "message": "BART API is running",
+        "timestamp": datetime.now().isoformat()
+    })
 
 @app.route('/api/stations', methods=['GET'])
 def get_stations():
@@ -34,6 +42,7 @@ def get_stations():
         
         return jsonify(stations)
     except Exception as e:
+        print(f"Error fetching stations: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
 @app.route('/api/departures/<station>', methods=['GET'])
@@ -74,6 +83,7 @@ def get_departures(station):
         })
         
     except Exception as e:
+        print(f"Error fetching departures: {str(e)}")
         return jsonify({
             "status": "Error",
             "timestamp": datetime.now().isoformat(),
@@ -140,7 +150,7 @@ def get_station_analytics():
         })
         
     except Exception as e:
-        print(f"Error in get_station_analytics: {str(e)}")  # Add logging
+        print(f"Error in get_station_analytics: {str(e)}")
         return jsonify({
             "status": "Error",
             "timestamp": datetime.now().isoformat(),
@@ -170,7 +180,7 @@ def get_performance_data(station):
         # Get system status
         cursor.execute('''
         SELECT 
-            COUNT(DISTINCT train_id) as active_trains,
+            COUNT(DISTINCT destination) as active_trains,
             COUNT(CASE WHEN delay > 0 THEN 1 END) as delayed_trains
         FROM departures
         WHERE date(timestamp) = date('now')
@@ -205,12 +215,13 @@ def get_performance_data(station):
         })
         
     except Exception as e:
+        print(f"Error in get_performance_data: {str(e)}")
         return jsonify({
             "status": "error",
             "error": str(e)
         }), 500
 
 if __name__ == '__main__':
-    import os
     port = int(os.environ.get('PORT', 5000))
+    print(f"Starting Flask app on port {port}")
     app.run(host='0.0.0.0', port=port, debug=False)
